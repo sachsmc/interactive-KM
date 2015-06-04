@@ -1,0 +1,111 @@
+---
+title: "Survival Curves with D3"
+author: "Michael Sachs"
+date: "June 4, 2015"
+output: 
+    html_document:
+        self_contained: false
+---
+
+<style>
+
+
+.tess {
+  fill: blue;
+  stroke: blue;
+  stroke-width: 0px;
+  opacity: 0;
+}
+
+.dot {
+    fill: blue;
+    stroke-width: 0px;
+    opacity: 0;
+    fill-opacity: 1;
+}
+
+.rects :hover circle {
+  fill: red;
+  opacity: 1;
+}
+   
+.rects :hover text {
+
+  opacity: 1;
+
+}   
+
+.hidetext {
+  
+  font-size: 14px;
+  stroke-opacity: 0;
+  fill-opacity: 1;
+  fill: black;
+  opacity: 0;
+
+}
+
+</style>
+
+<script src="d3.v3.min.js" charset="utf-8"></script>
+
+A single plot.
+
+### Proof of concept, selections and transitions
+
+```{r test-a, fig.keep='none', results = 'asis', echo = TRUE, fig.width=10, fig.height=6}
+library(survival)
+library(ggplot2)
+library(gridSVG)
+library(grid)
+library(dplyr)
+
+gdat <- survival::lung
+fit <- survfit(Surv(time, status) ~ factor(sex), data = gdat)
+tdat <- with(fit, data.frame(n.risk, time, surv, strata = rep(1:2, strata)))
+targ.times <- seq(min(tdat$time), max(tdat$time), by = 15)[-c(1, 68)]
+
+interp <- function(dat, t){
+  
+  if(t %in% dat$time){
+    
+    return(dat[dat$time == t, ])
+    
+  } else {
+    
+    t2 <- max(dat$time[dat$time < t])
+    
+    d2 <- dat[dat$time == t2, ]
+    d2$time <- t
+    return(d2)
+    
+  }
+  
+}
+
+tdat2 <- NULL
+for(ttt in targ.times){
+  
+  tdat2 <- rbind(tdat2, tdat %>% group_by(strata) %>% do({
+  
+    interp(., ttt)
+  
+  }))
+}
+tdat <- tdat2[order(tdat2$strata, tdat2$time),]
+
+p1 <- ggplot(gdat, aes(x = time, status = status, color = factor(sex))) + geom_km()
+
+p1 + geom_text(data = tdat, aes(x = time, y = surv, label = n.risk, hjust = .5, vjust = -1,
+                                status = NULL, color = NULL), alpha = 0) + 
+  geom_point(data = tdat, aes(x = time, y = surv,
+                                status = NULL, color = NULL), alpha = 0)
+
+grid.force()
+#grid.ls()
+
+grid.garnish("geom_point.points.11", tip = paste(tdat$n.risk), group = FALSE, global = TRUE, grep = TRUE)
+grid.export(NULL, prefix = "km")$svg
+```
+
+<script src="kmhover.js"></script>
