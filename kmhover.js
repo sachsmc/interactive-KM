@@ -34,8 +34,6 @@
               "dots": dots});
   }
   
-  console.log(times);
-  
 
 var svg = d3.select("g#kmgridSVG");
 

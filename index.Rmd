@@ -109,3 +109,72 @@ grid.export(NULL, prefix = "km")$svg
 ```
 
 <script src="kmhover.js"></script>
+
+
+### Transitioning a line
+
+```{r trans, fig.keep='none', results = 'asis', echo = TRUE, fig.width=10, fig.height=6}
+sdat1 <- survfit(Surv(time, status) ~ 1, data = subset(lung, sex == 1))
+sdat2 <- survfit(Surv(time, status) ~ 1, data = subset(lung, sex == 2))
+## create stepfunction
+dostep <- function(x,y) {
+        keep <- is.finite(x) & is.finite(y) 
+        if (!any(keep)) return()  #all points were infinite or NA
+        if (!all(keep)) {
+            # these won't plot anyway, so simplify (CI values are often NA)
+            x <- x[keep]
+            y <- y[keep]
+        }
+        n <- length(x)
+        if (n==1)       list(x=x, y=y)
+        else if (n==2)  list(x=x[c(1,2,2)], y=y[c(1,1,2)])
+        else {
+            # replace verbose horizonal sequences like
+            # (1, .2), (1.4, .2), (1.8, .2), (2.3, .2), (2.9, .2), (3, .1)
+            # with (1, .2), (.3, .2),(3, .1).  
+            #  They are slow, and can smear the looks of the line type.
+            temp <- rle(y)$lengths
+            drops <- 1 + cumsum(temp[-length(temp)])  # points where the curve drops
+
+            #create a step function
+            if (n %in% drops) {  #the last point is a drop
+                xrep <- c(x[1], rep(x[drops], each=2))
+                yrep <- rep(y[c(1,drops)], c(rep(2, length(drops)), 1))
+            }
+            else {
+                xrep <- c(x[1], rep(x[drops], each=2), x[n])
+                yrep <- c(rep(y[c(1,drops)], each=2))
+            }
+            list(x=xrep, y=yrep)
+        }
+}
+
+step1 <- dostep(sdat1$time, sdat1$surv)
+step2 <- dostep(sdat2$time, sdat2$surv)
+
+p1 <- ggplot(lung, aes(x = time, status = status)) + geom_km(se = FALSE) + 
+  scale_x_continuous(limits = c(0, 1022)) + 
+  scale_y_continuous(limits = c(0, 1))
+p1 
+grid.force()
+#grid.ls()
+
+grid.garnish("GRID.polyline.244", 
+             tipy1 = paste(round(step1$y, 3), collapse = ","), 
+             tipx1 = paste(step1$x, collapse = ","),
+             tipy2 = paste(round(step2$y, 3), collapse = ","), 
+             tipx2 = paste(step2$x, collapse = ","),
+             group = TRUE, global = TRUE, grep = TRUE)
+grid.export(NULL, prefix = "km2")$svg
+```
+
+<form action="">
+<input type="radio" name="sex" value="overall" checked>Overall<br/>
+<input type="radio" name="sex" value="male">Male<br/>
+<input type="radio" name="sex" value="female">Female<br/>
+</form>
+
+
+<script src="kmtransition.js"></script>
+
+
